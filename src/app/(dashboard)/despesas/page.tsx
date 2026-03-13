@@ -32,7 +32,7 @@ export default function DespesasPage() {
   const utils = trpc.useUtils();
 
   const {
-    expenses, totalIncome, totalExpenses, balance, loading, budget,
+    expenses, income, totalIncome, totalExpenses, balance, loading, budget, categoryBudgets,
     addExpense, updateExpense, deleteExpense,
     moveExpenseToNextMonth, generateRemainingInstallments,
   } = useExpenses(month);
@@ -51,8 +51,8 @@ export default function DespesasPage() {
 
   const unpaidExpenses = expenses.filter((e) => !e.paid);
   const unpaidTotal = unpaidExpenses.reduce((sum, e) => sum + e.value, 0);
-  const budgetPct = budget > 0 ? Math.round((totalExpenses / budget) * 100) : 0;
-  const incomePct = totalIncome > 0 ? Math.round((totalExpenses / totalIncome) * 100) : 0;
+  const budgetPct = budget > 0 ? Math.min(999, Math.round((totalExpenses / budget) * 100)) : 0;
+  const incomePct = totalIncome > 0 ? Math.min(999, Math.round((totalExpenses / totalIncome) * 100)) : 0;
 
   const handleSave = async (data: Omit<Expense, "id" | "date" | "month">) => {
     if (editingExpense) {
@@ -134,7 +134,16 @@ export default function DespesasPage() {
       <div className="rounded-2xl p-5 mb-4 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0a7ea4 0%, #0891b2 100%)" }}>
         <div className="absolute top-0 right-0 w-40 h-40 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white, transparent)", transform: "translate(30%, -30%)" }} />
         <div className="text-xs font-semibold mb-1" style={{ color: "rgba(255,255,255,0.65)" }}>SALDO RESTANTE</div>
-        <div className="text-4xl font-bold text-white mb-4">{formatCurrency(balance)}</div>
+        <div className="text-4xl font-bold text-white mb-1">{formatCurrency(balance)}</div>
+        {totalExpenses <= budget && budget > 0 ? (
+          <div className="text-xs font-semibold mb-3" style={{ color: "#4ADE80" }}>Dentro do orçamento</div>
+        ) : totalExpenses > totalIncome ? (
+          <div className="text-xs font-semibold mb-3" style={{ color: "#F87171" }}>Acima da renda</div>
+        ) : totalExpenses > budget && budget > 0 ? (
+          <div className="text-xs font-semibold mb-3" style={{ color: "#FBBF24" }}>Acima do orçamento</div>
+        ) : (
+          <div className="mb-4" />
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
             <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Receita</div>
@@ -171,6 +180,10 @@ export default function DespesasPage() {
           <div className="flex justify-between">
             <span className="text-xs text-muted">{formatCurrency(totalExpenses)} gastos</span>
             <span className="text-xs text-muted">limite {formatCurrency(budget)}</span>
+          </div>
+          <div className="mt-1">
+            <span className="text-xs text-muted">Orçamento</span>
+            <span className="text-xs text-muted ml-1">· Restante: {formatCurrency(Math.max(budget - totalExpenses, 0))}</span>
           </div>
         </div>
       )}
@@ -260,6 +273,9 @@ export default function DespesasPage() {
         {(Object.keys(categoryTotals) as ExpenseCategory[]).map((cat) => {
           const isSelected = selectedCategory === cat;
           const color = CATEGORY_COLORS[cat];
+          const catTotal = categoryTotals[cat] ?? 0;
+          const catBudget = categoryBudgets[cat] ?? 0;
+          const catPct = catBudget > 0 ? Math.min(999, Math.round((catTotal / catBudget) * 100)) : null;
           return (
             <button
               key={cat}
@@ -272,7 +288,7 @@ export default function DespesasPage() {
               }}
             >
               <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: color, display: "inline-block", flexShrink: 0 }} />
-              {CATEGORY_LABELS[cat]}
+              {CATEGORY_LABELS[cat]}{catPct !== null ? ` ${catPct}%` : ""}
               <span style={{ opacity: 0.7 }}>{formatCurrency(categoryTotals[cat])}</span>
             </button>
           );
@@ -331,7 +347,19 @@ export default function DespesasPage() {
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-muted mt-0.5">{CATEGORY_LABELS[expense.category]}</div>
+                  <div className="text-xs text-muted mt-0.5">
+                    {CATEGORY_LABELS[expense.category]}
+                    {!expense.quantity && expense.date && (
+                      <span className="ml-1.5">
+                        {(() => {
+                          const d = new Date(expense.date);
+                          const day = d.getUTCDate();
+                          const mon = d.toLocaleDateString("pt-BR", { month: "short", timeZone: "UTC" }).replace(".", "");
+                          return `${day} ${mon}`;
+                        })()}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Value */}
@@ -389,20 +417,4 @@ export default function DespesasPage() {
 
       {/* FAB */}
       <button
-        onClick={() => { setEditingExpense(null); setShowModal(true); }}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-brand text-white text-3xl font-light flex items-center justify-center z-40 transition-transform active:scale-95 hover:bg-brand/90"
-        style={{ boxShadow: "0 4px 20px rgba(10,126,164,0.45)" }}
-      >
-        +
-      </button>
-
-      {showModal && (
-        <ExpenseModal
-          expense={editingExpense}
-          onSave={handleSave}
-          onClose={() => { setShowModal(false); setEditingExpense(null); }}
-        />
-      )}
-    </div>
-  );
-}
+        onClick={() => { setEditingExpense(null);
