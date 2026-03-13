@@ -7,8 +7,8 @@ import { getNextMonth, parseQuantity } from "@/shared/expense-utils";
 
 const DEFAULT_INCOME: Income = { salary: 0, vale: 0, other: 0 };
 
-function toExpense(row: { id: number; name: string; category: string; value: string; date: string; month: string; quantity: string | null; paid: boolean | null }): Expense {
-  return { id: row.id.toString(), name: row.name, category: row.category as Expense["category"], value: parseFloat(row.value), date: row.date, month: row.month, quantity: row.quantity ?? undefined, paid: row.paid ?? undefined };
+function toExpense(row: { id: number; name: string; category: string; value: string; date: string; month: string; quantity: string | null; paid: boolean | null; source?: string | null }): Expense {
+  return { id: row.id.toString(), name: row.name, category: row.category as Expense["category"], value: parseFloat(row.value), date: row.date, month: row.month, quantity: row.quantity ?? undefined, paid: row.paid ?? undefined, source: (row.source ?? undefined) as Expense["source"] };
 }
 
 export function useExpenses(month: string) {

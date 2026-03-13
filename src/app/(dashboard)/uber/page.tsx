@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useUberEarnings } from "@/hooks/use-uber-earnings";
 import { getCurrentMonth, formatMonth, getPrevMonth, getNextMonth } from "@/shared/expense-utils";
+import { trpc } from "@/lib/trpc";
 import {
   UberEntry, UberCategory,
   getCategoryLabel, getCategoryColor,
@@ -29,6 +30,8 @@ export default function UberPage() {
   const [selectedCategory, setSelectedCategory] = useState<UberCategory | "all">("all");
   const [showModal, setShowModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<UberEntry | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const utils = trpc.useUtils();
 
   const { entries, earnings, expenses, totalEarnings, totalExpenses, netBalance, loading, addEntry, updateEntry, deleteEntry } = useUberEarnings(month);
 
@@ -62,6 +65,35 @@ export default function UberPage() {
     setSelectedCategory("all");
   };
 
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      const year = month.split("-")[0];
+      const data = await utils.uberEarnings.getByYear.fetch({ year });
+
+      const header = ["Mês", "Data", "Descrição", "Categoria", "Tipo", "Valor (R$)"];
+      const rows = data.map((e: any) => [
+        e.month,
+        e.date,
+        `"${e.description.replace(/"/g, '""')}"`,
+        e.category,
+        e.entryType,
+        parseFloat(e.value).toFixed(2),
+      ]);
+
+      const csv = [header.join(","), ...rows.map((r: any[]) => r.join(","))].join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `uber-${year}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-2xl mx-auto pb-24">
 
@@ -78,6 +110,14 @@ export default function UberPage() {
           onClick={() => setMonth(getNextMonth(month))}
           className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center text-lg text-muted hover:text-foreground transition-colors"
         >›</button>
+        <button
+          onClick={handleExportCSV}
+          disabled={exporting}
+          className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center text-muted hover:text-foreground transition-colors text-sm"
+          title="Exportar CSV do ano"
+        >
+          {exporting ? "⏳" : "📥"}
+        </button>
       </div>
 
       {/* Hero card */}

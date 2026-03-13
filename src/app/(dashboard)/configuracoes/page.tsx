@@ -38,6 +38,12 @@ export default function ConfiguracoesPage() {
   // Delete account state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Admin panel state
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [sqlQuery, setSqlQuery] = useState("");
+  const [sqlResult, setSqlResult] = useState<{ rows: any[]; error: string | null } | null>(null);
+
   // Mutations
   const updateNameMut = trpc.profile.updateName.useMutation({
     onSuccess: async () => {
@@ -49,6 +55,12 @@ export default function ConfiguracoesPage() {
 
   const deleteAccountMut = trpc.profile.deleteAccount.useMutation({
     onSuccess: () => logout(),
+  });
+
+  const tablesQuery = trpc.admin.getTables.useQuery(undefined, { enabled: showAdmin && user?.role === "admin" });
+  const tableDataQuery = trpc.admin.getTableData.useQuery({ table: selectedTable! }, { enabled: !!selectedTable && user?.role === "admin" });
+  const executeSQLMut = trpc.admin.executeSQL.useMutation({
+    onSuccess: (data) => setSqlResult(data),
   });
 
   useEffect(() => {
@@ -239,6 +251,81 @@ export default function ConfiguracoesPage() {
           </div>
         )}
       </div>
+
+      {user?.role === "admin" && (
+        <div className="rounded-2xl border border-border mt-4 overflow-hidden">
+          <button
+            onClick={() => setShowAdmin(v => !v)}
+            className="w-full flex items-center justify-between px-5 py-4 text-sm font-semibold text-muted hover:text-foreground transition-colors"
+          >
+            <span>🛠️ Painel Admin</span>
+            <span>{showAdmin ? "▲" : "▼"}</span>
+          </button>
+
+          {showAdmin && (
+            <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
+              {/* Tables */}
+              <div>
+                <div className="text-xs font-semibold text-muted mb-2">TABELAS</div>
+                <div className="flex flex-wrap gap-2">
+                  {(tablesQuery.data ?? []).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setSelectedTable(selectedTable === t ? null : t)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                      style={{
+                        border: `1.5px solid ${selectedTable === t ? "#0a7ea4" : "#334155"}`,
+                        backgroundColor: selectedTable === t ? "rgba(10,126,164,0.1)" : "transparent",
+                        color: selectedTable === t ? "#0a7ea4" : "#9BA1A6",
+                      }}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Table data */}
+              {selectedTable && tableDataQuery.data && (
+                <div className="overflow-x-auto">
+                  <div className="text-xs text-muted mb-1">{tableDataQuery.data.length} linhas</div>
+                  <div className="text-xs bg-surface-2 rounded-xl p-3 max-h-48 overflow-y-auto">
+                    <pre className="text-foreground">{JSON.stringify(tableDataQuery.data.slice(0, 5), null, 2)}</pre>
+                  </div>
+                </div>
+              )}
+
+              {/* SQL editor */}
+              <div>
+                <div className="text-xs font-semibold text-muted mb-2">SQL</div>
+                <textarea
+                  value={sqlQuery}
+                  onChange={(e) => setSqlQuery(e.target.value)}
+                  placeholder="SELECT * FROM users LIMIT 10"
+                  rows={3}
+                  className="w-full bg-surface-2 border border-border rounded-xl px-3 py-2 text-xs text-foreground placeholder-muted focus:outline-none focus:border-brand transition-colors font-mono resize-none"
+                />
+                <button
+                  onClick={() => executeSQLMut.mutate({ query: sqlQuery })}
+                  disabled={!sqlQuery.trim() || executeSQLMut.isPending}
+                  className="mt-2 px-4 py-2 rounded-xl bg-brand text-white text-xs font-semibold hover:bg-brand/90 disabled:opacity-60 transition-colors"
+                >
+                  {executeSQLMut.isPending ? "Executando..." : "Executar"}
+                </button>
+                {sqlResult && (
+                  <div className="mt-2 bg-surface-2 rounded-xl p-3 max-h-32 overflow-y-auto">
+                    {sqlResult.error ? (
+                      <div className="text-xs text-error">{sqlResult.error}</div>
+                    ) : (
+                      <pre className="text-xs text-foreground">{JSON.stringify(sqlResult.rows.slice(0, 10), null, 2)}</pre>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ export interface Expense {
   date: string;
   month: string;
   paid?: boolean;
+  source?: "manual" | "pluggy" | "nubank";
 }
 
 export interface Income {

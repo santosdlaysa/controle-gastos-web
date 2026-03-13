@@ -5,7 +5,7 @@ import { budgetRouter } from "./budget-router";
 import { historyRouter } from "./history-router";
 import { uberEarningsRouter } from "./uber-earnings-router";
 import { profileRouter } from "./profile-router";
-
+import { adminRouter } from "./admin-router";
 export const appRouter = router({
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
@@ -16,6 +16,7 @@ export const appRouter = router({
   history: historyRouter,
   uberEarnings: uberEarningsRouter,
   profile: profileRouter,
+  admin: adminRouter,
 });
 
 export type AppRouter = typeof appRouter;

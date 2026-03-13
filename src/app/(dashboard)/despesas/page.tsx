@@ -5,6 +5,7 @@ import { useExpenses } from "@/hooks/use-expenses";
 import { getCurrentMonth, formatMonth, getPrevMonth, getNextMonth } from "@/shared/expense-utils";
 import { CATEGORY_COLORS, CATEGORY_LABELS, Expense, ExpenseCategory } from "@/types/expense";
 import { ExpenseModal } from "@/components/expense-modal";
+import { trpc } from "@/lib/trpc";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -27,6 +28,8 @@ export default function DespesasPage() {
   const [showOnlyInstallments, setShowOnlyInstallments] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const utils = trpc.useUtils();
 
   const {
     expenses, totalIncome, totalExpenses, balance, loading, budget,
@@ -65,6 +68,38 @@ export default function DespesasPage() {
     await updateExpense(expense.id, { paid: !expense.paid });
   };
 
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      // Use trpc to get all expenses for the current year
+      const year = month.split("-")[0];
+      const data = await utils.expense.getByYear.fetch({ year });
+
+      const header = ["Mês", "Data", "Descrição", "Categoria", "Parcela", "Valor (R$)", "Pago", "Origem"];
+      const rows = data.map((e: any) => [
+        e.month,
+        e.date,
+        `"${e.name.replace(/"/g, '""')}"`,
+        e.category,
+        e.quantity ?? "",
+        parseFloat(e.value).toFixed(2),
+        e.paid ? "Sim" : "Não",
+        e.source ?? "manual",
+      ]);
+
+      const csv = [header.join(","), ...rows.map((r: any[]) => r.join(","))].join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `despesas-${year}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (confirm("Deletar esta despesa?")) await deleteExpense(id);
   };
@@ -85,6 +120,14 @@ export default function DespesasPage() {
           onClick={() => setMonth(getNextMonth(month))}
           className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center text-lg text-muted hover:text-foreground transition-colors"
         >›</button>
+        <button
+          onClick={handleExportCSV}
+          disabled={exporting}
+          className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center text-muted hover:text-foreground transition-colors text-sm"
+          title="Exportar CSV do ano"
+        >
+          {exporting ? "⏳" : "📥"}
+        </button>
       </div>
 
       {/* Hero balance card */}
@@ -271,6 +314,17 @@ export default function DespesasPage() {
                     <span className="text-sm font-semibold text-foreground truncate">
                       {expense.name}
                     </span>
+                    {expense.source && expense.source !== "manual" && (
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded-md flex-shrink-0 font-semibold"
+                        style={{
+                          backgroundColor: expense.source === "pluggy" ? "rgba(59,130,246,0.15)" : "rgba(128,0,128,0.15)",
+                          color: expense.source === "pluggy" ? "#60A5FA" : "#C084FC",
+                        }}
+                      >
+                        {expense.source === "pluggy" ? "🏦 Pluggy" : "🟣 Nubank"}
+                      </span>
+                    )}
                     {expense.quantity && (
                       <span className="text-xs px-1.5 py-0.5 rounded-md bg-surface-2 text-muted flex-shrink-0">
                         {expense.quantity}
