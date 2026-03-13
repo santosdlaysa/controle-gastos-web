@@ -29,12 +29,14 @@ export default function DespesasPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportYear, setExportYear] = useState(() => new Date().getFullYear().toString());
   const [editingIncome, setEditingIncome] = useState(false);
   const [incomeInput, setIncomeInput] = useState("");
   const utils = trpc.useUtils();
 
   const {
-    expenses, totalIncome, totalExpenses, balance, loading, budget, categoryBudgets,
+    expenses, income, totalIncome, totalExpenses, balance, loading, budget, categoryBudgets,
     incomeOverride,
     addExpense, updateExpense, deleteExpense,
     moveExpenseToNextMonth, generateRemainingInstallments,
@@ -171,64 +173,87 @@ export default function DespesasPage() {
           <div className="mb-4" />
         )}
         <div className="grid grid-cols-2 gap-3">
-          {/* Receita card — clickable for inline editing */}
-          <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
-            <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Receita</div>
-            {editingIncome ? (
-              <div className="flex items-center gap-1 mt-1">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={incomeInput}
-                  onChange={(e) => setIncomeInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleIncomeConfirm();
-                    if (e.key === "Escape") handleIncomeCancel();
-                  }}
-                  autoFocus
-                  className="w-full rounded-md px-2 py-1 text-sm font-bold bg-white/20 text-white placeholder-white/50 border border-white/30 focus:outline-none focus:border-white/60"
-                  placeholder="0,00"
-                />
-                <button
-                  onClick={handleIncomeConfirm}
-                  className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold transition-opacity hover:opacity-80"
-                  style={{ background: "rgba(74,222,128,0.3)", color: "#4ADE80" }}
-                  title="Confirmar"
-                >✓</button>
-                <button
-                  onClick={handleIncomeCancel}
-                  className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold transition-opacity hover:opacity-80"
-                  style={{ background: "rgba(248,113,113,0.3)", color: "#F87171" }}
-                  title="Cancelar"
-                >✕</button>
+          {/* Receita card */}
+          <button
+            onClick={handleIncomeEditStart}
+            className="rounded-xl p-3 text-left transition-opacity hover:opacity-80"
+            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(147,197,253,0.25)" }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#93C5FD" }}>Renda</span>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(147,197,253,0.2)" }}>
+                <span className="text-xs" style={{ color: "#93C5FD" }}>✏️</span>
               </div>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={handleIncomeEditStart}
-                  className="text-lg font-bold text-white hover:opacity-75 transition-opacity text-left"
-                  title="Clique para editar a receita deste mês"
-                >
-                  {formatCurrency(totalIncome)}
-                </button>
-                {incomeOverride !== null && (
-                  <button
-                    onClick={handleIncomeClear}
-                    className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-opacity hover:opacity-80"
-                    style={{ background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)" }}
-                    title="Limpar substituição e usar receita base"
-                  >×</button>
-                )}
+            </div>
+            <div className="text-lg font-bold text-white">{formatCurrency(totalIncome)}</div>
+            <div className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>
+              {incomeOverride !== null ? "personalizada · clique p/ editar" : "clique para editar"}
+            </div>
+          </button>
+
+          {/* Despesas card */}
+          <button
+            onClick={() => { setEditingExpense(null); setShowModal(true); }}
+            className="rounded-xl p-3 text-left transition-opacity hover:opacity-80"
+            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(252,165,165,0.25)" }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#FCA5A5" }}>Despesas</span>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(252,165,165,0.2)" }}>
+                <span className="text-xs font-bold" style={{ color: "#FCA5A5" }}>+</span>
               </div>
-            )}
-          </div>
-          <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
-            <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Gastos</div>
+            </div>
             <div className="text-lg font-bold text-white">{formatCurrency(totalExpenses)}</div>
-          </div>
+            <div className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>
+              {expenses.length} registro{expenses.length !== 1 ? "s" : ""} · clique p/ adicionar
+            </div>
+          </button>
         </div>
       </div>
+
+      {/* Painel de edição de renda */}
+      {editingIncome && (
+        <div className="rounded-2xl p-4 mb-4 bg-surface border border-border">
+          <div className="text-xs text-muted mb-3">Editar renda do mês</div>
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-bold" style={{ color: "#4ADE80" }}>R$</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={incomeInput}
+              onChange={(e) => setIncomeInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleIncomeConfirm();
+                if (e.key === "Escape") handleIncomeCancel();
+              }}
+              autoFocus
+              className="flex-1 bg-surface-2 border border-border rounded-xl px-3 py-2 text-lg font-bold focus:outline-none focus:border-brand transition-colors"
+              style={{ color: "#4ADE80" }}
+              placeholder="0.00"
+            />
+            <button
+              onClick={handleIncomeConfirm}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-lg transition-opacity hover:opacity-80"
+              style={{ color: "#4ADE80" }}
+              title="Confirmar"
+            >✓</button>
+            <button
+              onClick={handleIncomeCancel}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-lg transition-opacity hover:opacity-80 text-muted"
+              title="Cancelar"
+            >✕</button>
+          </div>
+          {incomeOverride !== null && (
+            <button
+              onClick={handleIncomeClear}
+              className="mt-3 text-xs text-muted hover:text-foreground transition-colors"
+            >
+              Restaurar padrão (R$ {(income.salary + income.vale + income.other).toFixed(2)})
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Budget progress bar */}
       {budget > 0 && (
