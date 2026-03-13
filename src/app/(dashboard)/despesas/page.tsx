@@ -10,20 +10,44 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
+const CATEGORY_ICONS: Record<ExpenseCategory, string> = {
+  transporte: "🚗",
+  alimentacao: "🍔",
+  moradia: "🏠",
+  saude: "❤️",
+  educacao: "📚",
+  lazer: "🎮",
+  outro: "📦",
+};
+
 export default function DespesasPage() {
   const [month, setMonth] = useState(getCurrentMonth());
-  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | "all">("all");
+  const [showOnlyUnpaid, setShowOnlyUnpaid] = useState(false);
+  const [showOnlyInstallments, setShowOnlyInstallments] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
-  const { expenses, totalIncome, totalExpenses, balance, loading, addExpense, updateExpense, deleteExpense, moveExpenseToNextMonth, generateRemainingInstallments } = useExpenses(month);
+  const {
+    expenses, totalIncome, totalExpenses, balance, loading,
+    addExpense, updateExpense, deleteExpense,
+    moveExpenseToNextMonth, generateRemainingInstallments,
+  } = useExpenses(month);
 
-  const filtered = selectedCategory ? expenses.filter((e) => e.category === selectedCategory) : expenses;
+  const filtered = expenses.filter((exp) => {
+    if (selectedCategory !== "all" && exp.category !== selectedCategory) return false;
+    if (showOnlyUnpaid && exp.paid) return false;
+    if (showOnlyInstallments && !exp.quantity) return false;
+    return true;
+  });
 
   const categoryTotals = expenses.reduce<Record<string, number>>((acc, e) => {
     acc[e.category] = (acc[e.category] ?? 0) + e.value;
     return acc;
   }, {});
+
+  const unpaidExpenses = expenses.filter((e) => !e.paid);
+  const unpaidTotal = unpaidExpenses.reduce((sum, e) => sum + e.value, 0);
 
   const handleSave = async (data: Omit<Expense, "id" | "date" | "month">) => {
     if (editingExpense) {
@@ -35,120 +59,229 @@ export default function DespesasPage() {
     setEditingExpense(null);
   };
 
+  const handleTogglePaid = async (expense: Expense) => {
+    await updateExpense(expense.id, { paid: !expense.paid });
+  };
+
   const handleDelete = async (id: string) => {
     if (confirm("Deletar esta despesa?")) await deleteExpense(id);
   };
 
-  const balanceColor = balance >= 0 ? "text-success" : "text-error";
-
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setMonth(getPrevMonth(month))} className="w-8 h-8 rounded-lg bg-surface-2 border border-border text-muted hover:text-foreground flex items-center justify-center transition-colors">‹</button>
-          <h1 className="text-lg font-semibold text-foreground capitalize">{formatMonth(month)}</h1>
-          <button onClick={() => setMonth(getNextMonth(month))} className="w-8 h-8 rounded-lg bg-surface-2 border border-border text-muted hover:text-foreground flex items-center justify-center transition-colors">›</button>
-        </div>
-        <button onClick={() => { setEditingExpense(null); setShowModal(true); }} className="px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand/90 transition-colors">
-          + Nova Despesa
-        </button>
+    <div className="p-6 max-w-2xl mx-auto pb-24">
+
+      {/* Month navigation */}
+      <div className="flex items-center justify-center gap-4 mb-5">
+        <button
+          onClick={() => setMonth(getPrevMonth(month))}
+          className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center text-lg text-muted hover:text-foreground transition-colors"
+        >‹</button>
+        <span className="text-sm font-semibold text-foreground/80 capitalize w-36 text-center">
+          {formatMonth(month)}
+        </span>
+        <button
+          onClick={() => setMonth(getNextMonth(month))}
+          className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center text-lg text-muted hover:text-foreground transition-colors"
+        >›</button>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-surface rounded-xl p-4 border border-border">
-          <div className="text-xs text-muted mb-1">Receita</div>
-          <div className="text-xl font-bold text-success">{formatCurrency(totalIncome)}</div>
-        </div>
-        <div className="bg-surface rounded-xl p-4 border border-border">
-          <div className="text-xs text-muted mb-1">Gastos</div>
-          <div className="text-xl font-bold text-error">{formatCurrency(totalExpenses)}</div>
-        </div>
-        <div className="bg-surface rounded-xl p-4 border border-border">
-          <div className="text-xs text-muted mb-1">Saldo</div>
-          <div className={`text-xl font-bold ${balanceColor}`}>{formatCurrency(balance)}</div>
+      {/* Hero balance card */}
+      <div className="rounded-2xl p-5 mb-4 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0a7ea4 0%, #0891b2 100%)" }}>
+        <div className="absolute top-0 right-0 w-40 h-40 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white, transparent)", transform: "translate(30%, -30%)" }} />
+        <div className="text-xs font-semibold mb-1" style={{ color: "rgba(255,255,255,0.65)" }}>SALDO RESTANTE</div>
+        <div className="text-4xl font-bold text-white mb-4">{formatCurrency(balance)}</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
+            <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Receita</div>
+            <div className="text-lg font-bold text-white">{formatCurrency(totalIncome)}</div>
+          </div>
+          <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
+            <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Gastos</div>
+            <div className="text-lg font-bold text-white">{formatCurrency(totalExpenses)}</div>
+          </div>
         </div>
       </div>
 
-      {/* Category filter chips */}
-      {Object.keys(categoryTotals).length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-              !selectedCategory ? "bg-brand/10 text-brand border-brand/30" : "bg-surface text-muted border-border hover:text-foreground"
-            }`}
-          >
-            Todas
-          </button>
-          {(Object.entries(categoryTotals) as [ExpenseCategory, number][]).map(([cat, total]) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                selectedCategory === cat ? "text-white border-transparent" : "bg-surface text-muted border-border hover:text-foreground"
-              }`}
-              style={selectedCategory === cat ? { backgroundColor: CATEGORY_COLORS[cat] } : {}}
-            >
-              <span style={{ color: selectedCategory === cat ? "white" : CATEGORY_COLORS[cat] }}>●</span>{" "}
-              {CATEGORY_LABELS[cat]} · {formatCurrency(total)}
-            </button>
-          ))}
+      {/* Unpaid summary */}
+      {unpaidExpenses.length > 0 && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface border border-border mb-4">
+          <div className="w-2 h-2 rounded-full bg-warning flex-shrink-0" />
+          <span className="text-sm text-muted flex-1">
+            {unpaidExpenses.length} despesa{unpaidExpenses.length !== 1 ? "s" : ""} não paga{unpaidExpenses.length !== 1 ? "s" : ""}
+          </span>
+          <span className="text-sm font-semibold text-warning">{formatCurrency(unpaidTotal)}</span>
         </div>
       )}
 
+      {/* Quick toggles */}
+      <div className="flex gap-2 mb-3 flex-wrap">
+        <button
+          onClick={() => setShowOnlyUnpaid(v => !v)}
+          className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+          style={{
+            border: `1.5px solid ${showOnlyUnpaid ? "#4ADE80" : "#334155"}`,
+            backgroundColor: showOnlyUnpaid ? "rgba(74,222,128,0.12)" : "transparent",
+            color: showOnlyUnpaid ? "#4ADE80" : "#9BA1A6",
+          }}
+        >
+          Somente não pagas
+        </button>
+        <button
+          onClick={() => setShowOnlyInstallments(v => !v)}
+          className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+          style={{
+            border: `1.5px solid ${showOnlyInstallments ? "#0a7ea4" : "#334155"}`,
+            backgroundColor: showOnlyInstallments ? "rgba(10,126,164,0.12)" : "transparent",
+            color: showOnlyInstallments ? "#0a7ea4" : "#9BA1A6",
+          }}
+        >
+          Somente parcelas
+        </button>
+      </div>
+
+      {/* Category filter chips */}
+      <div className="flex gap-2 mb-5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        <button
+          onClick={() => setSelectedCategory("all")}
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+          style={{
+            border: `1.5px solid ${selectedCategory === "all" ? "#0a7ea4" : "#334155"}`,
+            backgroundColor: selectedCategory === "all" ? "#0a7ea4" : "transparent",
+            color: selectedCategory === "all" ? "#fff" : "#9BA1A6",
+          }}
+        >
+          <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: selectedCategory === "all" ? "#fff" : "#9BA1A6", display: "inline-block", flexShrink: 0 }} />
+          <span>Todas</span>
+          <span style={{ opacity: 0.75 }}>{expenses.length}</span>
+        </button>
+
+        {(Object.keys(categoryTotals) as ExpenseCategory[]).map((cat) => {
+          const isSelected = selectedCategory === cat;
+          const color = CATEGORY_COLORS[cat];
+          return (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(isSelected ? "all" : cat)}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+              style={{
+                border: `${isSelected ? 2 : 1.5}px solid ${isSelected ? color : "#334155"}`,
+                backgroundColor: isSelected ? color + "22" : "transparent",
+                color: isSelected ? color : "#9BA1A6",
+              }}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: color, display: "inline-block", flexShrink: 0 }} />
+              {CATEGORY_LABELS[cat]}
+              <span style={{ opacity: 0.7 }}>{formatCurrency(categoryTotals[cat])}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Expense list */}
-      <div className="bg-surface rounded-xl border border-border overflow-hidden">
+      <div className="space-y-2">
         {loading ? (
-          <div className="p-8 text-center text-muted">Carregando...</div>
+          <div className="py-16 text-center text-muted text-sm">Carregando...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-muted">
-            {selectedCategory ? "Nenhuma despesa nesta categoria" : "Nenhuma despesa neste mês"}
+          <div className="py-16 text-center text-muted text-sm">
+            {selectedCategory !== "all" ? "Nenhuma despesa nesta categoria" : "Nenhuma despesa neste mês"}
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {filtered.map((expense) => (
-              <div key={expense.id} className="flex items-center gap-3 p-4 hover:bg-surface-2 transition-colors">
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[expense.category] }} />
+          filtered.map((expense) => {
+            const accentColor = expense.paid ? "#4ADE80" : CATEGORY_COLORS[expense.category];
+            return (
+              <div
+                key={expense.id}
+                className="flex items-center gap-3 p-4 rounded-2xl bg-surface border border-border transition-all hover:bg-surface-2"
+                style={{
+                  borderLeftWidth: 4,
+                  borderLeftColor: accentColor,
+                  opacity: expense.paid ? 0.7 : 1,
+                }}
+              >
+                {/* Icon */}
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                  style={{ backgroundColor: CATEGORY_COLORS[expense.category] + "22" }}
+                >
+                  {CATEGORY_ICONS[expense.category]}
+                </div>
+
+                {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground truncate">{expense.name}</span>
-                    {expense.quantity && <span className="text-xs text-muted bg-surface-2 px-1.5 py-0.5 rounded">{expense.quantity}</span>}
-                    {expense.paid && <span className="text-xs text-success bg-success/10 px-1.5 py-0.5 rounded">Pago</span>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-foreground truncate">
+                      {expense.name}
+                    </span>
+                    {expense.quantity && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-md bg-surface-2 text-muted flex-shrink-0">
+                        {expense.quantity}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-muted mt-0.5">{CATEGORY_LABELS[expense.category]}</div>
                 </div>
-                <div className="text-sm font-semibold text-foreground">{formatCurrency(expense.value)}</div>
-                <div className="flex items-center gap-1 ml-2">
+
+                {/* Value */}
+                <div className="text-sm font-bold flex-shrink-0" style={{ color: accentColor }}>
+                  {formatCurrency(expense.value)}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-0.5 flex-shrink-0">
                   <button
                     onClick={() => { setEditingExpense(expense); setShowModal(true); }}
-                    className="w-7 h-7 rounded-lg text-muted hover:text-foreground hover:bg-surface flex items-center justify-center text-xs transition-colors"
+                    className="w-8 h-8 rounded-lg text-muted hover:text-foreground hover:bg-surface-2 flex items-center justify-center text-sm transition-colors"
                     title="Editar"
                   >✏️</button>
                   <button
                     onClick={() => moveExpenseToNextMonth(expense.id)}
-                    className="w-7 h-7 rounded-lg text-muted hover:text-brand hover:bg-brand/10 flex items-center justify-center text-xs transition-colors"
+                    className="w-8 h-8 rounded-lg text-muted hover:text-brand hover:bg-brand/10 flex items-center justify-center text-sm transition-colors"
                     title="Mover para próximo mês"
                   >→</button>
                   {expense.quantity && (
                     <button
                       onClick={() => generateRemainingInstallments(expense.id)}
-                      className="w-7 h-7 rounded-lg text-muted hover:text-success hover:bg-success/10 flex items-center justify-center text-xs transition-colors"
+                      className="w-8 h-8 rounded-lg text-muted hover:text-success hover:bg-success/10 flex items-center justify-center text-sm transition-colors"
                       title="Gerar parcelas restantes"
                     >⚡</button>
                   )}
                   <button
                     onClick={() => handleDelete(expense.id)}
-                    className="w-7 h-7 rounded-lg text-muted hover:text-error hover:bg-error/10 flex items-center justify-center text-xs transition-colors"
+                    className="w-8 h-8 rounded-lg text-muted hover:text-error hover:bg-error/10 flex items-center justify-center text-sm transition-colors"
                     title="Deletar"
                   >🗑️</button>
                 </div>
+
+                {/* Paid toggle */}
+                <button
+                  onClick={() => handleTogglePaid(expense)}
+                  className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90"
+                  style={{
+                    border: `2px solid ${expense.paid ? "#4ADE80" : "#9BA1A6"}`,
+                    backgroundColor: expense.paid ? "#4ADE80" : "transparent",
+                  }}
+                  title={expense.paid ? "Marcar como não pago" : "Marcar como pago"}
+                >
+                  {expense.paid && (
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
               </div>
-            ))}
-          </div>
+            );
+          })
         )}
       </div>
+
+      {/* FAB */}
+      <button
+        onClick={() => { setEditingExpense(null); setShowModal(true); }}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-brand text-white text-3xl font-light flex items-center justify-center z-40 transition-transform active:scale-95 hover:bg-brand/90"
+        style={{ boxShadow: "0 4px 20px rgba(10,126,164,0.45)" }}
+      >
+        +
+      </button>
 
       {showModal && (
         <ExpenseModal
