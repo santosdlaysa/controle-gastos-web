@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "./_core/trpc";
-import { getUberEarningsByMonth, getUberEarningsByYear, createUberEarning, updateUberEarning, deleteUberEarning } from "./uber-earnings-db";
+import { getUberEarningsByMonth, getUberEarningsByYear, createUberEarning, updateUberEarning, deleteUberEarning, getUberMonthlyHistory } from "./uber-earnings-db";
 
 export const uberEarningsRouter = router({
   getByMonth: protectedProcedure
@@ -45,4 +45,6 @@ export const uberEarningsRouter = router({
       await deleteUberEarning(ctx.user.id, input.id);
       return { success: true };
     }),
+
+  getMonthlyHistory: protectedProcedure.query(async ({ ctx }) => getUberMonthlyHistory(ctx.user.id)),
 });

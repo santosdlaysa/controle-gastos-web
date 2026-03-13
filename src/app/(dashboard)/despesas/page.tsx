@@ -29,7 +29,7 @@ export default function DespesasPage() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   const {
-    expenses, totalIncome, totalExpenses, balance, loading,
+    expenses, totalIncome, totalExpenses, balance, loading, budget,
     addExpense, updateExpense, deleteExpense,
     moveExpenseToNextMonth, generateRemainingInstallments,
   } = useExpenses(month);
@@ -48,6 +48,8 @@ export default function DespesasPage() {
 
   const unpaidExpenses = expenses.filter((e) => !e.paid);
   const unpaidTotal = unpaidExpenses.reduce((sum, e) => sum + e.value, 0);
+  const budgetPct = budget > 0 ? Math.round((totalExpenses / budget) * 100) : 0;
+  const incomePct = totalIncome > 0 ? Math.round((totalExpenses / totalIncome) * 100) : 0;
 
   const handleSave = async (data: Omit<Expense, "id" | "date" | "month">) => {
     if (editingExpense) {
@@ -102,8 +104,65 @@ export default function DespesasPage() {
         </div>
       </div>
 
+      {/* Budget progress bar */}
+      {budget > 0 && (
+        <div className="rounded-2xl p-4 mb-4 bg-surface border border-border">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-muted">ORÇAMENTO DO MÊS</span>
+            <span
+              className="text-xs font-bold"
+              style={{ color: budgetPct > 100 ? "#F87171" : budgetPct > 80 ? "#FBBF24" : "#4ADE80" }}
+            >
+              {budgetPct}%
+            </span>
+          </div>
+          <div className="h-2 bg-surface-2 rounded-full overflow-hidden mb-2">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${Math.min(budgetPct, 100)}%`,
+                backgroundColor: budgetPct > 100 ? "#F87171" : budgetPct > 80 ? "#FBBF24" : "#4ADE80",
+              }}
+            />
+          </div>
+          <div className="flex justify-between">
+            <span className="text-xs text-muted">{formatCurrency(totalExpenses)} gastos</span>
+            <span className="text-xs text-muted">limite {formatCurrency(budget)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Metrics: income usage + unpaid count */}
+      {totalIncome > 0 && (
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-surface rounded-xl p-3 border border-border">
+            <div className="text-xs text-muted mb-1">Uso da renda</div>
+            <div
+              className="text-lg font-bold"
+              style={{ color: incomePct > 100 ? "#F87171" : incomePct > 80 ? "#FBBF24" : "#ECEDEE" }}
+            >
+              {incomePct}%
+            </div>
+            <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden mt-2">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min(incomePct, 100)}%`,
+                  backgroundColor: incomePct > 100 ? "#F87171" : incomePct > 80 ? "#FBBF24" : "#0a7ea4",
+                }}
+              />
+            </div>
+          </div>
+          <div className="bg-surface rounded-xl p-3 border border-border">
+            <div className="text-xs text-muted mb-1">Não pagas</div>
+            <div className="text-lg font-bold text-warning">{unpaidExpenses.length}</div>
+            <div className="text-xs text-muted mt-1">{formatCurrency(unpaidTotal)}</div>
+          </div>
+        </div>
+      )}
+
       {/* Unpaid summary */}
-      {unpaidExpenses.length > 0 && (
+      {totalIncome === 0 && unpaidExpenses.length > 0 && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface border border-border mb-4">
           <div className="w-2 h-2 rounded-full bg-warning flex-shrink-0" />
           <span className="text-sm text-muted flex-1">

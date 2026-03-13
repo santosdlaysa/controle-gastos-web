@@ -1,4 +1,4 @@
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 import { uberEarnings, InsertUberEarning } from "@/drizzle/schema";
 import { getDb } from "./db";
 
@@ -31,4 +31,19 @@ export async function deleteUberEarning(userId: number, id: number): Promise<voi
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.delete(uberEarnings).where(and(eq(uberEarnings.id, id), eq(uberEarnings.userId, userId)));
+}
+
+export async function getUberMonthlyHistory(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      month: uberEarnings.month,
+      totalEarnings: sql<string>`SUM(CASE WHEN ${uberEarnings.entryType} = 'ganho' THEN CAST(${uberEarnings.value} AS DECIMAL) ELSE 0 END)`,
+      totalExpenses: sql<string>`SUM(CASE WHEN ${uberEarnings.entryType} = 'gasto' THEN CAST(${uberEarnings.value} AS DECIMAL) ELSE 0 END)`,
+    })
+    .from(uberEarnings)
+    .where(eq(uberEarnings.userId, userId))
+    .groupBy(uberEarnings.month)
+    .orderBy(uberEarnings.month);
 }

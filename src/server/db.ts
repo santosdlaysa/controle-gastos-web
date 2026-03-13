@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { InsertUser, users } from "@/drizzle/schema";
+import { InsertUser, users, expenses, incomes, budgets, categoryBudgets, uberEarnings } from "@/drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -48,4 +48,21 @@ export async function runRawSql(query: string): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.execute(sql.raw(query));
+}
+
+export async function updateUserName(userId: number, name: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ name }).where(eq(users.id, userId));
+}
+
+export async function deleteUserAccount(userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(categoryBudgets).where(eq(categoryBudgets.userId, userId));
+  await db.delete(budgets).where(eq(budgets.userId, userId));
+  await db.delete(incomes).where(eq(incomes.userId, userId));
+  await db.delete(expenses).where(eq(expenses.userId, userId));
+  await db.delete(uberEarnings).where(eq(uberEarnings.userId, userId));
+  await db.delete(users).where(eq(users.id, userId));
 }
