@@ -286,17 +286,50 @@ tfoot td{background:#f3f4f6;font-weight:700}
       {/* Hero card */}
       <div className="rounded-2xl p-5 mb-4 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #059669 0%, #10b981 100%)" }}>
         <div className="absolute top-0 right-0 w-40 h-40 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white, transparent)", transform: "translate(30%, -30%)" }} />
-        <div className="text-xs font-semibold mb-1" style={{ color: "rgba(255,255,255,0.65)" }}>LUCRO LÍQUIDO</div>
-        <div className="text-4xl font-bold text-white mb-4">{formatCurrency(netBalance)}</div>
+        <div className="text-xs font-semibold mb-1 text-center" style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em" }}>LUCRO LÍQUIDO</div>
+        <div className="text-4xl font-bold text-center mb-2" style={{ color: netBalance >= 0 ? "#6EE7B7" : "#FCA5A5" }}>{formatCurrency(netBalance)}</div>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: netBalance >= 0 ? "#6EE7B7" : "#FCA5A5" }} />
+          <span className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
+            {netBalance >= 0 ? "No lucro este mês" : "Gastos maiores que ganhos"}
+          </span>
+        </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
-            <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Ganhos</div>
+          {/* Ganhos card — clicável para adicionar ganho */}
+          <button
+            onClick={() => { setEditingEntry(null); setTab("ganho"); setShowModal(true); }}
+            className="rounded-xl p-3 text-left transition-opacity hover:opacity-80"
+            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(110,231,183,0.25)" }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#6EE7B7" }}>Ganhos</span>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(110,231,183,0.2)" }}>
+                <span className="text-xs font-bold" style={{ color: "#6EE7B7" }}>+</span>
+              </div>
+            </div>
             <div className="text-lg font-bold text-white">{formatCurrency(totalEarnings)}</div>
-          </div>
-          <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
-            <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Gastos</div>
+            <div className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>
+              {earnings.length} registro{earnings.length !== 1 ? "s" : ""} · clique p/ adicionar
+            </div>
+          </button>
+
+          {/* Gastos card — clicável para adicionar gasto */}
+          <button
+            onClick={() => { setEditingEntry(null); setTab("gasto"); setShowModal(true); }}
+            className="rounded-xl p-3 text-left transition-opacity hover:opacity-80"
+            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(252,165,165,0.25)" }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#FCA5A5" }}>Gastos</span>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(252,165,165,0.2)" }}>
+                <span className="text-xs font-bold" style={{ color: "#FCA5A5" }}>+</span>
+              </div>
+            </div>
             <div className="text-lg font-bold text-white">{formatCurrency(totalExpenses)}</div>
-          </div>
+            <div className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>
+              {expenses.length} registro{expenses.length !== 1 ? "s" : ""} · clique p/ adicionar
+            </div>
+          </button>
         </div>
       </div>
 
