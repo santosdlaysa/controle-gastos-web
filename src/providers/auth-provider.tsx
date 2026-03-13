@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { getMe, logout as logoutApi } from "@/lib/auth";
 
-type User = { id: number; openId: string; name: string | null; email: string | null };
+type User = { id: number; openId: string; name: string | null; email: string | null; role: "user" | "admin" };
 
 type AuthContextType = {
   user: User | null;

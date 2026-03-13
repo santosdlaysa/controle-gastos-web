@@ -1,6 +1,6 @@
 "use client";
 
-type AuthUser = { id: number; openId: string; name: string | null; email: string | null };
+type AuthUser = { id: number; openId: string; name: string | null; email: string | null; role: "user" | "admin" };
 
 export async function login(email: string, password: string): Promise<{ token: string; user: AuthUser }> {
   const res = await fetch("/api/auth/login", {

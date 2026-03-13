@@ -16,5 +16,5 @@ export async function GET(req: NextRequest) {
   const user = await getUserByOpenId(session.openId);
   if (!user) return NextResponse.json({ user: null }, { status: 401 });
 
-  return NextResponse.json({ user: { id: user.id, openId: user.openId, name: user.name, email: user.email } });
+  return NextResponse.json({ user: { id: user.id, openId: user.openId, name: user.name, email: user.email, role: user.role } });
 }
