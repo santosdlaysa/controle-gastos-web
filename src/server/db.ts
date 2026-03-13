@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { InsertUser, users, expenses, incomes, budgets, categoryBudgets, uberEarnings } from "@/drizzle/schema";
+import { InsertUser, users, expenses, incomes, budgets, categoryBudgets, uberEarnings, banks } from "@/drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -64,5 +64,6 @@ export async function deleteUserAccount(userId: number): Promise<void> {
   await db.delete(incomes).where(eq(incomes.userId, userId));
   await db.delete(expenses).where(eq(expenses.userId, userId));
   await db.delete(uberEarnings).where(eq(uberEarnings.userId, userId));
+  await db.delete(banks).where(eq(banks.userId, userId));
   await db.delete(users).where(eq(users.id, userId));
 }

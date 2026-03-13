@@ -6,6 +6,8 @@ import { historyRouter } from "./history-router";
 import { uberEarningsRouter } from "./uber-earnings-router";
 import { profileRouter } from "./profile-router";
 import { adminRouter } from "./admin-router";
+import { bankRouter } from "./bank-router";
+
 export const appRouter = router({
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
@@ -17,6 +19,7 @@ export const appRouter = router({
   uberEarnings: uberEarningsRouter,
   profile: profileRouter,
   admin: adminRouter,
+  bank: bankRouter,
 });
 
 export type AppRouter = typeof appRouter;

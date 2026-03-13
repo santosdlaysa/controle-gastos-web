@@ -29,13 +29,39 @@ export default function DespesasPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [editingIncome, setEditingIncome] = useState(false);
+  const [incomeInput, setIncomeInput] = useState("");
   const utils = trpc.useUtils();
 
   const {
-    expenses, income, totalIncome, totalExpenses, balance, loading, budget, categoryBudgets,
+    expenses, totalIncome, totalExpenses, balance, loading, budget, categoryBudgets,
+    incomeOverride,
     addExpense, updateExpense, deleteExpense,
     moveExpenseToNextMonth, generateRemainingInstallments,
+    updateIncomeOverride,
   } = useExpenses(month);
+
+  const handleIncomeEditStart = () => {
+    setIncomeInput(totalIncome > 0 ? String(totalIncome) : "");
+    setEditingIncome(true);
+  };
+
+  const handleIncomeConfirm = async () => {
+    const parsed = parseFloat(incomeInput.replace(",", "."));
+    if (!isNaN(parsed) && parsed >= 0) {
+      await updateIncomeOverride(parsed);
+    }
+    setEditingIncome(false);
+  };
+
+  const handleIncomeCancel = () => {
+    setEditingIncome(false);
+    setIncomeInput("");
+  };
+
+  const handleIncomeClear = async () => {
+    await updateIncomeOverride(null);
+  };
 
   const filtered = expenses.filter((exp) => {
     if (selectedCategory !== "all" && exp.category !== selectedCategory) return false;
@@ -145,9 +171,57 @@ export default function DespesasPage() {
           <div className="mb-4" />
         )}
         <div className="grid grid-cols-2 gap-3">
+          {/* Receita card — clickable for inline editing */}
           <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
             <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Receita</div>
-            <div className="text-lg font-bold text-white">{formatCurrency(totalIncome)}</div>
+            {editingIncome ? (
+              <div className="flex items-center gap-1 mt-1">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={incomeInput}
+                  onChange={(e) => setIncomeInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleIncomeConfirm();
+                    if (e.key === "Escape") handleIncomeCancel();
+                  }}
+                  autoFocus
+                  className="w-full rounded-md px-2 py-1 text-sm font-bold bg-white/20 text-white placeholder-white/50 border border-white/30 focus:outline-none focus:border-white/60"
+                  placeholder="0,00"
+                />
+                <button
+                  onClick={handleIncomeConfirm}
+                  className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold transition-opacity hover:opacity-80"
+                  style={{ background: "rgba(74,222,128,0.3)", color: "#4ADE80" }}
+                  title="Confirmar"
+                >✓</button>
+                <button
+                  onClick={handleIncomeCancel}
+                  className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold transition-opacity hover:opacity-80"
+                  style={{ background: "rgba(248,113,113,0.3)", color: "#F87171" }}
+                  title="Cancelar"
+                >✕</button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleIncomeEditStart}
+                  className="text-lg font-bold text-white hover:opacity-75 transition-opacity text-left"
+                  title="Clique para editar a receita deste mês"
+                >
+                  {formatCurrency(totalIncome)}
+                </button>
+                {incomeOverride !== null && (
+                  <button
+                    onClick={handleIncomeClear}
+                    className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-opacity hover:opacity-80"
+                    style={{ background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)" }}
+                    title="Limpar substituição e usar receita base"
+                  >×</button>
+                )}
+              </div>
+            )}
           </div>
           <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
             <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Gastos</div>
@@ -417,4 +491,24 @@ export default function DespesasPage() {
 
       {/* FAB */}
       <button
-        onClick={() => { setEditingExpense(null);
+        onClick={() => { setEditingExpense(null); setShowModal(true); }}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-brand text-white text-3xl font-light flex items-center justify-center z-40 transition-transform active:scale-95 hover:bg-brand/90"
+        style={{ boxShadow: "0 4px 20px rgba(10,126,164,0.45)" }}
+      >
+        +
+      </button>
+
+      {showModal && (
+        <ExpenseModal
+          expense={editingExpense}
+          currentMonth={month}
+          onSave={handleSave}
+          onDelete={editingExpense ? async (id) => { await deleteExpense(id); setShowModal(false); setEditingExpense(null); } : undefined}
+          onMoveToNextMonth={editingExpense ? async (id) => { await moveExpenseToNextMonth(id); setShowModal(false); setEditingExpense(null); } : undefined}
+          onGenerateInstallments={editingExpense ? async (id) => { await generateRemainingInstallments(id); setShowModal(false); setEditingExpense(null); } : undefined}
+          onClose={() => { setShowModal(false); setEditingExpense(null); }}
+        />
+      )}
+    </div>
+  );
+}

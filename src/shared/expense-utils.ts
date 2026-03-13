@@ -33,3 +33,9 @@ export function getPrevMonth(monthStr: string): string {
   const date = new Date(year, month - 2);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
+
+export function detectSource(clientId: string | null | undefined): "pluggy" | "nubank" | "manual" {
+  if (!clientId) return "manual";
+  if (clientId.toLowerCase().includes("nubank")) return "nubank";
+  return "pluggy";
+}

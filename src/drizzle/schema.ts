@@ -47,14 +47,29 @@ export const expenses = pgTable(
     quantity: varchar("quantity", { length: 20 }),
     paid: boolean("paid").default(false),
     source: expenseSourceEnum("source").default("manual"),
+    bank: varchar("bank", { length: 100 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   (t) => [uniqueIndex("expenses_user_client_idx").on(t.userId, t.clientId)],
 );
 
+export const banks = pgTable(
+  "banks",
+  {
+    id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
+    userId: integer("userId").notNull(),
+    name: varchar("name", { length: 100 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("banks_user_name_idx").on(t.userId, t.name)],
+);
+
 export type DbExpense = typeof expenses.$inferSelect;
 export type InsertExpense = typeof expenses.$inferInsert;
+
+export type DbBank = typeof banks.$inferSelect;
+export type InsertBank = typeof banks.$inferInsert;
 
 export const incomes = pgTable("incomes", {
   id: integer("id").generatedAlwaysAsIdentity().primaryKey(),

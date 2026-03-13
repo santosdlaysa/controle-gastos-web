@@ -10,6 +10,7 @@ export interface Expense {
   month: string;
   paid?: boolean;
   source?: "manual" | "pluggy" | "nubank";
+  bank?: string;
 }
 
 export interface Income {

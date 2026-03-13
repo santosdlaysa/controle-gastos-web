@@ -7,8 +7,8 @@ import { getNextMonth, parseQuantity } from "@/shared/expense-utils";
 
 const DEFAULT_INCOME: Income = { salary: 0, vale: 0, other: 0 };
 
-function toExpense(row: { id: number; name: string; category: string; value: string; date: string; month: string; quantity: string | null; paid: boolean | null; source?: string | null }): Expense {
-  return { id: row.id.toString(), name: row.name, category: row.category as Expense["category"], value: parseFloat(row.value), date: row.date, month: row.month, quantity: row.quantity ?? undefined, paid: row.paid ?? undefined, source: (row.source ?? undefined) as Expense["source"] };
+function toExpense(row: { id: number; name: string; category: string; value: string; date: string; month: string; quantity: string | null; paid: boolean | null; source?: string | null; bank?: string | null }): Expense {
+  return { id: row.id.toString(), name: row.name, category: row.category as Expense["category"], value: parseFloat(row.value), date: row.date, month: row.month, quantity: row.quantity ?? undefined, paid: row.paid ?? undefined, source: (row.source ?? undefined) as Expense["source"], bank: row.bank ?? undefined };
 }
 
 export function useExpenses(month: string) {
@@ -55,11 +55,11 @@ export function useExpenses(month: string) {
   const incomeOverrideMut = trpc.budget.updateIncomeOverride.useMutation();
 
   const addExpense = async (expense: Omit<Expense, "id" | "date" | "month">) => {
-    await createMut.mutateAsync({ name: expense.name, category: expense.category, value: expense.value, date: new Date().toISOString(), month, quantity: expense.quantity, paid: expense.paid });
+    await createMut.mutateAsync({ name: expense.name, category: expense.category, value: expense.value, date: new Date().toISOString(), month, quantity: expense.quantity, paid: expense.paid, bank: expense.bank });
   };
 
   const updateExpense = async (id: string, updates: Partial<Omit<Expense, "id" | "date" | "month">>) => {
-    await updateMut.mutateAsync({ id: parseInt(id, 10), name: updates.name, category: updates.category, value: updates.value, quantity: updates.quantity ?? null, paid: updates.paid });
+    await updateMut.mutateAsync({ id: parseInt(id, 10), name: updates.name, category: updates.category, value: updates.value, quantity: updates.quantity ?? null, paid: updates.paid, bank: updates.bank ?? null });
   };
 
   const deleteExpense = async (id: string) => {

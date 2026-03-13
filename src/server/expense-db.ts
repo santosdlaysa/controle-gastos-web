@@ -4,6 +4,7 @@ import {
   incomes,
   budgets,
   categoryBudgets,
+  banks,
   InsertExpense,
   ExpenseCategory,
 } from "@/drizzle/schema";
@@ -28,9 +29,22 @@ export async function createExpense(data: Omit<InsertExpense, "id" | "createdAt"
   return result[0].id;
 }
 
+export async function getBanks(userId: number): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select({ name: banks.name }).from(banks).where(eq(banks.userId, userId)).orderBy(banks.name);
+  return rows.map((r) => r.name);
+}
+
+export async function ensureBank(userId: number, name: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(banks).values({ userId, name: name.trim() }).onConflictDoNothing();
+}
+
 export async function updateExpense(
   userId: number, id: number,
-  data: Partial<Pick<InsertExpense, "name" | "category" | "value" | "quantity" | "paid">>,
+  data: Partial<Pick<InsertExpense, "name" | "category" | "value" | "quantity" | "paid" | "bank">>,
 ): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
