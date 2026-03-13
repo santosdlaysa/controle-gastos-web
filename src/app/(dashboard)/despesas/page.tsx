@@ -340,8 +340,7 @@ export default function DespesasPage() {
           }}
         >
           <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: selectedCategory === "all" ? "#fff" : "#9BA1A6", display: "inline-block", flexShrink: 0 }} />
-          <span>Todas</span>
-          <span style={{ opacity: 0.75 }}>{expenses.length}</span>
+          <span>Todas ({filtered.length})</span>
         </button>
 
         {(Object.keys(categoryTotals) as ExpenseCategory[]).map((cat) => {
@@ -362,8 +361,9 @@ export default function DespesasPage() {
               }}
             >
               <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: color, display: "inline-block", flexShrink: 0 }} />
-              {CATEGORY_LABELS[cat]}{catPct !== null ? ` ${catPct}%` : ""}
-              <span style={{ opacity: 0.7 }}>{formatCurrency(categoryTotals[cat])}</span>
+              {catBudget > 0 && catTotal > 0
+                ? `${CATEGORY_LABELS[cat]} · ${formatCurrency(catTotal)} de ${formatCurrency(catBudget)} (${catPct}%)`
+                : CATEGORY_LABELS[cat]}
             </button>
           );
         })}

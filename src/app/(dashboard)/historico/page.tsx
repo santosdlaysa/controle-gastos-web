@@ -14,6 +14,12 @@ function getMonthLabel(monthStr: string): string {
   return date.toLocaleDateString("pt-BR", { month: "long" });
 }
 
+function getMonthShort(monthStr: string): string {
+  const [year, month] = monthStr.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+  return date.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+}
+
 export default function HistoricoPage() {
   const currentYear = new Date().getFullYear().toString();
   const [year, setYear] = useState(currentYear);
@@ -80,8 +86,9 @@ export default function HistoricoPage() {
           {isPersonal ? (
             <>
               <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
-                <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Receita estimada</div>
-                <div className="text-lg font-bold text-white">{formatCurrency(personalAnnualIncome)}</div>
+                <div className="text-xs mb-0.5" style={{ color: "rgba(255,255,255,0.6)" }}>Renda Mensal</div>
+                <div className="text-lg font-bold text-white">{formatCurrency(totalMonthlyIncome)}</div>
+                <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>valor fixo por mês</div>
               </div>
               <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.12)" }}>
                 <div className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Total Gastos</div>
@@ -128,6 +135,36 @@ export default function HistoricoPage() {
         personalYear.length === 0 ? (
           <div className="py-16 text-center text-muted text-sm">Nenhum dado em {year}</div>
         ) : (
+          <>
+            {/* Bar chart: Despesas por mês */}
+            <div className="bg-surface rounded-2xl p-4 border border-border mb-3">
+              <div className="text-xs font-semibold text-muted mb-3 uppercase tracking-wide">Despesas por mês</div>
+              <div className="space-y-2">
+                {[...personalYear].sort((a, b) => a.month.localeCompare(b.month)).map((row) => {
+                  const exp = parseFloat(row.totalExpenses ?? "0");
+                  const bal = totalMonthlyIncome - exp;
+                  const maxExp = Math.max(...personalYear.map(r => parseFloat(r.totalExpenses ?? "0")), 1);
+                  const ratio = exp / maxExp;
+                  return (
+                    <div key={row.month} className="flex items-center gap-2">
+                      <span className="text-xs text-muted w-7 shrink-0 capitalize">{getMonthShort(row.month)}</span>
+                      <div className="flex-1 h-5 bg-surface-2 rounded overflow-hidden">
+                        <div
+                          className="h-full rounded"
+                          style={{ width: `${Math.round(ratio * 100)}%`, backgroundColor: `rgba(248,113,113,${0.35 + ratio * 0.65})` }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold shrink-0" style={{ color: "#F87171", minWidth: "80px", textAlign: "right" }}>
+                        -{formatCurrency(exp)}
+                      </span>
+                      <span className="text-xs font-semibold shrink-0" style={{ color: bal >= 0 ? "#4ADE80" : "#F87171", minWidth: "88px", textAlign: "right" }}>
+                        {bal >= 0 ? "▲" : "▼"} {formatCurrency(Math.abs(bal))}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           <div className="space-y-3">
             {personalYear.map((row) => {
               const exp = parseFloat(row.totalExpenses ?? "0");
@@ -157,11 +194,43 @@ export default function HistoricoPage() {
               );
             })}
           </div>
+          </>
         )
       ) : (
         uberYear.length === 0 ? (
           <div className="py-16 text-center text-muted text-sm">Nenhum dado Uber em {year}</div>
         ) : (
+          <>
+            {/* Bar chart: Ganhos por mês */}
+            <div className="bg-surface rounded-2xl p-4 border border-border mb-3">
+              <div className="text-xs font-semibold text-muted mb-3 uppercase tracking-wide">Ganhos por mês</div>
+              <div className="space-y-2">
+                {[...uberYear].sort((a, b) => a.month.localeCompare(b.month)).map((row) => {
+                  const earn = parseFloat(row.totalEarnings ?? "0");
+                  const exp = parseFloat(row.totalExpenses ?? "0");
+                  const profit = earn - exp;
+                  const maxEarn = Math.max(...uberYear.map(r => parseFloat(r.totalEarnings ?? "0")), 1);
+                  const ratio = earn / maxEarn;
+                  return (
+                    <div key={row.month} className="flex items-center gap-2">
+                      <span className="text-xs text-muted w-7 shrink-0 capitalize">{getMonthShort(row.month)}</span>
+                      <div className="flex-1 h-5 bg-surface-2 rounded overflow-hidden">
+                        <div
+                          className="h-full rounded"
+                          style={{ width: `${Math.round(ratio * 100)}%`, backgroundColor: `rgba(74,222,128,${0.35 + ratio * 0.65})` }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold shrink-0" style={{ color: "#4ADE80", minWidth: "80px", textAlign: "right" }}>
+                        {formatCurrency(earn)}
+                      </span>
+                      <span className="text-xs font-semibold shrink-0" style={{ color: profit >= 0 ? "#4ADE80" : "#F87171", minWidth: "88px", textAlign: "right" }}>
+                        {profit >= 0 ? "▲" : "▼"} {formatCurrency(Math.abs(profit))}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           <div className="space-y-3">
             {uberYear.map((row) => {
               const earn = parseFloat(row.totalEarnings ?? "0");
@@ -193,6 +262,7 @@ export default function HistoricoPage() {
               );
             })}
           </div>
+          </>
         )
       )}
     </div>
