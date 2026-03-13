@@ -96,35 +96,137 @@ export default function DespesasPage() {
     await updateExpense(expense.id, { paid: !expense.paid });
   };
 
+  const MONTH_NAMES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
   const handleExportCSV = async () => {
     setExporting(true);
     try {
-      // Use trpc to get all expenses for the current year
-      const year = month.split("-")[0];
-      const data = await utils.expense.getByYear.fetch({ year });
+      const data = await utils.expense.getByYear.fetch({ year: exportYear });
 
-      const header = ["Mês", "Data", "Descrição", "Categoria", "Parcela", "Valor (R$)", "Pago", "Origem"];
-      const rows = data.map((e: any) => [
-        e.month,
-        e.date,
-        `"${e.name.replace(/"/g, '""')}"`,
-        e.category,
-        e.quantity ?? "",
-        parseFloat(e.value).toFixed(2),
-        e.paid ? "Sim" : "Não",
-        e.source ?? "manual",
-      ]);
+      const today = new Date();
+      const gen = `${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+      const lines: string[] = [];
+      lines.push(`Relatório Anual de Despesas - ${exportYear}`);
+      lines.push(`Gerado em: ${gen}`);
+      lines.push("");
+      lines.push("Mês,Data,Descrição,Categoria,Parcela,Valor (R$),Pago");
 
-      const csv = [header.join(","), ...rows.map((r: any[]) => r.join(","))].join("\n");
+      const sorted = [...data].sort((a: any, b: any) =>
+        a.month !== b.month ? a.month.localeCompare(b.month) : a.date.localeCompare(b.date)
+      );
+
+      const byMonth: Record<string, number> = {};
+      let total = 0;
+      for (const e of sorted) {
+        const [, mn] = (e as any).month.split("-");
+        const mName = MONTH_NAMES[parseInt(mn, 10) - 1] ?? (e as any).month;
+        const v = parseFloat((e as any).value);
+        byMonth[(e as any).month] = (byMonth[(e as any).month] ?? 0) + v;
+        total += v;
+        const cat = CATEGORY_LABELS[(e as any).category as ExpenseCategory] ?? (e as any).category;
+        const desc = `"${(e as any).name.replace(/"/g,'""')}"`;
+        lines.push(`${mName}/${exportYear},${(e as any).date},${desc},${cat},${(e as any).quantity ?? ""},${v.toFixed(2)},${(e as any).paid ? "Sim" : "Não"}`);
+      }
+
+      lines.push("");
+      lines.push("--- RESUMO MENSAL ---");
+      lines.push("Mês,Total Despesas (R$)");
+      for (const m of Object.keys(byMonth).sort()) {
+        const [, mn] = m.split("-");
+        const name = MONTH_NAMES[parseInt(mn, 10) - 1] ?? m;
+        lines.push(`${name}/${exportYear},${byMonth[m].toFixed(2)}`);
+      }
+      lines.push("");
+      lines.push(`Total Anual,${total.toFixed(2)}`);
+
+      const csv = lines.join("\n");
       const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `despesas-${year}.csv`;
+      a.download = `despesas-${exportYear}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
       setExporting(false);
+      setShowExportModal(false);
+    }
+  };
+
+  const handleExportHTML = async () => {
+    setExporting(true);
+    try {
+      const data = await utils.expense.getByYear.fetch({ year: exportYear });
+
+      const today = new Date();
+      const gen = `${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+
+      const byMonth: Record<string, number> = {};
+      let total = 0;
+      for (const e of data as any[]) {
+        const v = parseFloat(e.value);
+        byMonth[e.month] = (byMonth[e.month] ?? 0) + v;
+        total += v;
+      }
+
+      const sorted = [...data as any[]].sort((a, b) =>
+        a.month !== b.month ? a.month.localeCompare(b.month) : a.date.localeCompare(b.date)
+      );
+
+      const monthRows = Object.keys(byMonth).sort().map(m => {
+        const [, mn] = m.split("-");
+        const name = MONTH_NAMES[parseInt(mn, 10) - 1] ?? m;
+        return `<tr><td>${name}</td><td style="text-align:right;font-weight:600">R$ ${byMonth[m].toFixed(2)}</td></tr>`;
+      }).join("");
+
+      const entryRows = sorted.map(e => {
+        const [, mn] = e.month.split("-");
+        const mName = MONTH_NAMES[parseInt(mn, 10) - 1] ?? e.month;
+        const cat = CATEGORY_LABELS[e.category as ExpenseCategory] ?? e.category;
+        const color = CATEGORY_COLORS[e.category as ExpenseCategory] ?? "#6B7280";
+        const d = new Date(e.date);
+        const dateStr = `${String(d.getUTCDate()).padStart(2,"0")}/${String(d.getUTCMonth()+1).padStart(2,"0")}/${d.getUTCFullYear()}`;
+        return `<tr><td>${mName}</td><td>${dateStr}</td><td>${e.name.replace(/</g,"&lt;")}</td><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:4px"></span>${cat}</td><td style="text-align:center">${e.quantity ?? "—"}</td><td style="text-align:right">R$ ${parseFloat(e.value).toFixed(2)}</td><td style="text-align:center">${e.paid ? "&#10003;" : "—"}</td></tr>`;
+      }).join("");
+
+      const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Despesas ${exportYear}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:24px;background:#fff}
+h1{font-size:20px;font-weight:700;margin-bottom:4px}.subtitle{color:#6B7280;font-size:11px;margin-bottom:20px}
+.cards{display:flex;gap:12px;margin-bottom:20px}.card{flex:1;border-radius:8px;padding:14px;border:1px solid #e5e7eb;background:#f9fafb}
+.cw{background:#eff6ff;border-color:#bfdbfe}.clabel{font-size:10px;color:#6B7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}.cval{font-size:18px;font-weight:700}
+h2{font-size:13px;font-weight:700;margin:20px 0 8px;border-bottom:2px solid #e5e7eb;padding-bottom:4px;color:#374151}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:#f3f4f6;padding:7px 10px;text-align:left;font-weight:600;border-bottom:2px solid #e5e7eb;color:#374151}
+td{padding:6px 10px;border-bottom:1px solid #f3f4f6}tr:hover td{background:#f9fafb}
+tfoot td{background:#f3f4f6;font-weight:700}
+.footer{margin-top:20px;font-size:10px;color:#9CA3AF;text-align:center;padding-top:12px;border-top:1px solid #e5e7eb}
+@media print{body{padding:0}@page{margin:1.5cm}}
+</style></head><body>
+<h1>Relatorio Anual de Despesas - ${exportYear}</h1>
+<div class="subtitle">Gerado em ${gen} &middot; ${data.length} registro${data.length !== 1 ? "s" : ""}</div>
+<div class="cards">
+  <div class="card cw"><div class="clabel">Total Anual</div><div class="cval" style="color:#0a7ea4">R$ ${total.toFixed(2)}</div></div>
+  <div class="card"><div class="clabel">Registros</div><div class="cval">${data.length}</div></div>
+  <div class="card"><div class="clabel">Meses com dados</div><div class="cval">${Object.keys(byMonth).length}</div></div>
+</div>
+<h2>Resumo Mensal</h2>
+<table><thead><tr><th>Mes</th><th style="text-align:right">Total Despesas</th></tr></thead><tbody>${monthRows}</tbody><tfoot><tr><td>Total Anual</td><td style="text-align:right">R$ ${total.toFixed(2)}</td></tr></tfoot></table>
+<h2>Registros Detalhados</h2>
+<table><thead><tr><th>Mes</th><th>Data</th><th>Descricao</th><th>Categoria</th><th style="text-align:center">Parcela</th><th style="text-align:right">Valor</th><th style="text-align:center">Pago</th></tr></thead><tbody>${entryRows}</tbody></table>
+<div class="footer">Controle de Gastos &mdash; Relatorio de Despesas ${exportYear}</div>
+</body></html>`;
+
+      const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `despesas-${exportYear}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+      setShowExportModal(false);
     }
   };
 
@@ -149,14 +251,63 @@ export default function DespesasPage() {
           className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center text-lg text-muted hover:text-foreground transition-colors"
         >›</button>
         <button
-          onClick={handleExportCSV}
+          onClick={() => { setExportYear(month.split("-")[0]); setShowExportModal(true); }}
           disabled={exporting}
           className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center text-muted hover:text-foreground transition-colors text-sm"
-          title="Exportar CSV do ano"
+          title="Exportar dados do ano"
         >
           {exporting ? "⏳" : "📥"}
         </button>
       </div>
+
+      {/* Export modal */}
+      {showExportModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={() => setShowExportModal(false)}
+        >
+          <div
+            className="bg-surface border border-border rounded-2xl p-6 w-full max-w-xs shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-bold text-foreground">Exportar Despesas</span>
+              <button onClick={() => setShowExportModal(false)} className="text-muted hover:text-foreground text-lg leading-none">✕</button>
+            </div>
+            <div className="mb-4">
+              <label className="text-xs text-muted mb-1.5 block">Ano</label>
+              <select
+                value={exportYear}
+                onChange={(e) => setExportYear(e.target.value)}
+                className="w-full bg-surface-2 border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-brand"
+              >
+                {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleExportCSV}
+                disabled={exporting}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: "rgba(10,126,164,0.12)", border: "1.5px solid #0a7ea4", color: "#0a7ea4" }}
+              >
+                {exporting ? "Exportando..." : "Baixar CSV"}
+              </button>
+              <button
+                onClick={handleExportHTML}
+                disabled={exporting}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: "rgba(139,92,246,0.12)", border: "1.5px solid #8B5CF6", color: "#8B5CF6" }}
+              >
+                {exporting ? "Exportando..." : "Baixar HTML"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hero balance card */}
       <div className="rounded-2xl p-5 mb-4 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0a7ea4 0%, #0891b2 100%)" }}>

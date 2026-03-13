@@ -2,9 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Dark theme (default) ── */
+html, html.dark {
+  --color-background: #151718;
+  --color-surface: #1e2022;
+  --color-surface-2: #252829;
+  --color-border: #334155;
+  --color-foreground: #ECEDEE;
+  --color-muted: #9BA1A6;
+}
+
 html, body {
   background-color: #151718;
   color: #ECEDEE;
+}
+
+/* ── Light theme overrides ── */
+html.light {
+  --color-background: #F0F2F5;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F0F2F5;
+  --color-border: #D1D5DB;
+  --color-foreground: #111827;
+  --color-muted: #6B7280;
+}
+
+html.light body {
+  background-color: #F0F2F5;
+  color: #111827;
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: #E5E7EB;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #9CA3AF;
 }
 
 * {

@@ -6,6 +6,7 @@ import { useExpenses } from "@/hooks/use-expenses";
 import { CATEGORY_LABELS, CATEGORY_COLORS, ExpenseCategory } from "@/types/expense";
 import { useAuth } from "@/providers/auth-provider";
 import { trpc } from "@/lib/trpc";
+import { useTheme } from "@/hooks/use-theme";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -20,6 +21,7 @@ export default function ConfiguracoesPage() {
   const month = getCurrentMonth();
   const { user, logout, refetch } = useAuth();
   const { income, budget, categoryBudgets, updateIncome, updateBudget, updateCategoryBudgets } = useExpenses(month);
+  const { theme, toggleTheme } = useTheme();
 
   // Income & budget state
   const [salary, setSalary] = useState("");
@@ -211,6 +213,39 @@ export default function ConfiguracoesPage() {
       >
         {saved ? "✓ Salvo!" : saving ? "Salvando..." : "Salvar Configurações"}
       </button>
+
+      {/* Aparência */}
+      <div className="bg-surface rounded-2xl p-5 border border-border mb-4">
+        <h2 className="text-sm font-semibold text-foreground mb-4">Aparência</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">🌙</span>
+            <div>
+              <div className="text-sm text-foreground font-medium">Tema escuro</div>
+              <div className="text-xs text-muted mt-0.5">
+                {theme === "dark" ? "Ativado" : "Desativado"}
+              </div>
+            </div>
+          </div>
+          {/* Toggle switch */}
+          <button
+            role="switch"
+            aria-checked={theme === "dark"}
+            onClick={toggleTheme}
+            className="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+            style={{
+              backgroundColor: theme === "dark" ? "#0a7ea4" : "#D1D5DB",
+            }}
+          >
+            <span
+              className="pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out"
+              style={{
+                transform: theme === "dark" ? "translateX(20px)" : "translateX(0px)",
+              }}
+            />
+          </button>
+        </div>
+      </div>
 
       {/* Danger zone */}
       <div className="rounded-2xl p-5 border mb-2" style={{ borderColor: "rgba(248,113,113,0.3)", backgroundColor: "rgba(248,113,113,0.05)" }}>
